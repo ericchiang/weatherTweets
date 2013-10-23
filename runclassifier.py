@@ -1,3 +1,12 @@
+#!/usr/bin/python
+
+__author__    = "Eric Chiang"
+__copyright__ = "Copyright 2013, Eric Chiang"
+__email__     = "eric.chiang.m@gmail.com"
+
+__license__   = "GPL"
+__version__   = "3.0"
+
 import csv
 import sys
 import json
@@ -56,42 +65,62 @@ if __name__ == '__main__':
     for row in data:
         tweet_data.append(parseTweet(row[1]))
     assert len(tweet_data) == len(data)    
-    print "%d tweets parsed" % (len(tweet_data),)
+    print "[+] %d tweets parsed" % (len(tweet_data),)
 
     label = 's3'
     # Get index of desired label
     label_index = headers.index(label)
 
-    print headers
-    print headers[label_index]
-    # Generate training data
-    train_x = tweet_data[1:-100]
-    train_y = []
-    for row in data[1:-100]:
-        conf = row[label_index]
-        if float(conf) > 0.3:
-            train_y.append('1')
-        else:
-            train_y.append('0')
- 
-    print set(train_y)
+    print "[+] Preforming training on class '%s'" % (label,)
 
-    if len(set(train_y)) > 5:
-        sys.exit(0)
+    n_test = 200
+
+    # Generate training data
+    train_x = tweet_data[1:-n_test]
+    train_y = []
+    for row in data[1:-n_test]:
+        train_y.append(row[label_index])
+
 
     # Generate test data
-    test_x = tweet_data[-100:]
+    test_x = tweet_data[-n_test:]
     test_y = []
-    for row in data[-100:]:
-        conf = row[label_index]
-        test_y.append(conf)
+    for row in data[-n_test:]:
+        test_y.append(row[label_index])
 
-    # Initialize bayes classifier
+    # Model file information
+    model_file_name = 'model/bayesModel.data'
+    read_model_from_file = True
+
     naiveBayes = BagOfWordsBayes()
-    # Train bayes classifier
-    naiveBayes.train(train_x,train_y)
-    print "Classifier trained"
+
+    if read_model_from_file:
+        try:
+            model_file = open(model_file_name,'r')
+            naiveBayes.readInModel(model_file)
+            model_file.close()
+        except IOError:
+            print "[-] Error reading model from file"
+            sys.exit(3)
+    else:
+        # Initialize bayes classifier
+        naiveBayes = BagOfWordsBayes()
+        # Train bayes classifier
+        print "[+] Training classifier..."
+        naiveBayes.train(train_x,train_y)
+        print "[+] Classifier trained"
+    
+        print "[+] Writing classifier model to file"
+        try:
+            model_file = open(model_file_name,'w')
+            naiveBayes.writeOutModel(model_file)
+            model_file.close()
+            print "[+] Classifier model written"
+        except IOError:
+            print "[-] Error writing classifier to file"
+
+    print "[+] Fitting data..."
     pred_y = naiveBayes.fit(test_x)
-    print "Results created!"
+    print "[+] Data fit!"
     for i in range(len(test_y)):
-        print "%s\t%s" % (test_y[i],pred_y[i])
+        print "%s\t%s\t%s" % (test_y[i],pred_y[i][0],pred_y[i][1])
