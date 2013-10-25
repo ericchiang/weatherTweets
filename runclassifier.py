@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     print "[+] Preforming training on class '%s'" % (label,)
 
-    n_test = 200
+    n_test = 500
 
     # Generate training data
     train_x = tweet_data[1:-n_test]
@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
     # Model file information
     model_file_name = 'model/bayesModel.data'
-    read_model_from_file = True
+    read_model_from_file = False
 
     naiveBayes = BagOfWordsBayes()
 
