@@ -10,6 +10,13 @@ __version__   = "3.0"
 import math
 import sys
 import json
+import numpy
+from threading import Thread
+from Queue import Queue
+
+# utils.py containing sorts and binary searches
+import utils
+
 
 """
 Binary Bag of Words Naive Bayes algorithm. Takes and produces inclass 
@@ -22,40 +29,69 @@ class BagOfWordsBayes(object):
     confidence intervals corresponding to the confidence that a specific bag
     is inclass.
     """
-    def train(self, x, y):
+    def train(self, x, y, num_threads=1):
+
+        raise Exception("Training not fully implemented")
+
         assert len(x) == len(y), "Bags and intervals have different lengths"
-        for ci in y:
-           ci = float(ci)
-           assert ci >= 0 and ci <= 1, \
-                 "Bad confidence interval %f" % (ci,)
+        for i in len(y):
+            conf_inter = float(y[i])
+            assert conf_inter >= 0.0 and conf_inter <= 1
+            y[i] = conf_inter
 
-        num_bags = len(x)
-        for i in range(num_bags):
-            if (i + i) % (num_bags / 20) == 0:
-                print "%d/%d trained" % (i, num_bags)
-            bag_of_words = set(x[i]) # Only care about unique words 
-            inclass_prob = float(y[i])
-            outclass_prob = 1.0 - inclass_prob
+        inclass_freq = sum(y)
+        self.class_priori[self.inclass]  = inclass_freq / float(len(x))
+        self.class_priori[self.outclass] = (len(x) - inclass_freq) / float(len(x))
 
-            """
-            Because this classifier deals with confidence values rather than
-            discrete classes, frequencies of words and classes are computed 
-            using the inclass probabilities. 
-            """
-            self.class_freqs[self.inclass]  += inclass_prob
-            self.class_freqs[self.outclass] += outclass_prob
-            for word in bag_of_words:
-                if word not in self.word_freqs.keys():
-                    self.word_freqs[word] = [0.0,0.0]
-                self.word_freqs[word][self.inclass]  += inclass_prob
-                self.word_freqs[word][self.outclass] += outclass_prob
+        queue = Queue() 
 
-        # Calculate priori likelihood of inclass and outclass
-        self.class_priori[self.inclass]  = \
-                                   self.class_freqs[self.inclass] / num_bags
-        self.class_priori[self.outclass] = \
-                                   self.class_freqs[self.outclass] / num_bags
+        # parallelize training
+        threads = []
+        chunk_size = int(math.ceil(len(x) / float(num_threads)))
+        for i in range(num_threads):
+            x_chunk = x[i * chunk_size : (i + 1) * chunk_size]
+            y_chunk = x[i * chunk_size : (i + 1) * chunk_size]
+            t = Thread(target=self._paraTrain, args=(x_chunk,y_chunk,queue)
+            t.deamon = True
+            t.start()
+            threads.append(t)
 
+        # To reduce memory usage
+        del x
+        del y
+
+        # Wait for threads to finish
+        for t in threads:
+            t.join()
+
+        assert queue.qsize() == num_threads
+
+        # Collect results from each sort
+        bag_data = []
+        while not queue.empty():
+            bag_data.extend(queue.get())
+
+        bag_data = utils.parallelSort(bag_data,num_threads)
+
+
+    """
+    Write training data to queue
+    """
+    def _paraTrain(self,x,y,queue):
+        assert len(x) == len(y)
+        results = []
+        for i in range(len(x)):
+            results.extend(self._parseBag(x[i],y[i]))
+        queue.put(results)
+
+    """
+    Parse a bag into a list of tuples. (word, inclass_prob)
+    """
+    def _parseBag(self, bag, inclass_prob):
+        result = []
+        for word in set(x):
+            result.append((word,inclass_prob))
+        return result
 
     """
     Fit a bag of words. Returns inclass and outclass probabilities
@@ -64,7 +100,7 @@ class BagOfWordsBayes(object):
        y = ['']*len(x)
        for i in range(len(x)):
           bag_of_words = x[i]
-          y[i] = self.classifyBag(bag_of_words)
+          y[i] = self._classifyBag(bag_of_words)
        return y
 
 
@@ -72,7 +108,7 @@ class BagOfWordsBayes(object):
     Classify a bag of words. Probabilities are calculated in log space to avoid
     float underflow
     """
-    def classifyBag(self,bag_of_words):
+    def _classifyBag(self,bag_of_words):
         p = [0.0,0.0]
         n = [0.0,0.0]
         for word in bag_of_words:
