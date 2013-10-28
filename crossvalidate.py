@@ -9,9 +9,7 @@ __version__   = "3.0"
 
 import csv
 import sys
-import json
 import re
-import string
 import math
 import numpy as np
 from sklearn import cross_validation
