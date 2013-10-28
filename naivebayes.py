@@ -37,7 +37,8 @@ class BagOfWordsBayes(object):
         assert len(x) == len(y), "Bags and intervals have different lengths"
         for i in range(len(y)):
             conf_inter = float(y[i])
-            assert conf_inter >= 0.0 and conf_inter <= 1.0
+            assert conf_inter >= 0.0 and conf_inter <= 1.0, \
+                  "Bad CI '%s' at index [%s]" % (conf_inter, i)
             y[i] = conf_inter
 
         if verbose:
@@ -201,12 +202,14 @@ class BagOfWordsBayes(object):
             bag = x[i]
             inclass_prob = y[i]
             for word in set(bag):
-                inclass_prob = self._probModifier(inclass_prob)
                 outclass_prob = 1.0 - inclass_prob
                 freq_tuple = (word,inclass_prob,outclass_prob)
                 word_freqs.append(freq_tuple)
         queue.put(word_freqs)
 
+    """
+    Not used
+    """
     def _probModifier(self,confid_inter):
         assert confid_inter <= 1.0 and confid_inter >= 0.0, \
               "Bad confidence interval: %s" % confid_inter
@@ -255,8 +258,10 @@ class BagOfWordsBayes(object):
         for word in bag_of_words:
             p_in  = self._correctedClassProb(self.inclass,word)
             p_out = self._correctedClassProb(self.outclass,word)
-            assert p_in  < 1.0 and p_in  > 0.0
-            assert p_out < 1.0 and p_out > 0.0
+            assert p_in  < 1.0 and p_in  > 0.0, \
+                  "%s %s" % (word,p_in)
+            assert p_out < 1.0 and p_out > 0.0, \
+                  "%s %s" % (word,p_out)
             n[0] += math.log(1.0 - p_in) - math.log(p_in)
             n[1] += math.log(1.0 - p_out) - math.log(p_out)
         p[0] = 1.0 / (1.0 + math.exp(n[0]))
@@ -299,26 +304,18 @@ class BagOfWordsBayes(object):
  
         # Probability of class given word
         prCW = class_word_freq / self.class_freqs[class_name]
+        assert prCW <= 1.0, "%s %s" % \
+              (class_word_freq,self.class_freqs[class_name])
+
         # Strength variable
         s = self.s
         # Priori probability of class
         prC = self.class_priori[class_name]
+
         # Number of times the word appeared in training
         n = total_word_freq
     
         return ((s * prC) + (n * prCW)) / (s + n)
-
-    def writeOutModel(self,f):
-        model = [self.s, self.word_freqs, self.class_priori,
-                 self.internal_classifier]
-        f.write(json.dumps(model))
-
-    def readInModel(self,f):
-        model = json.loads(f.read())
-        self.s                   = model[0]
-        self.word_freqs          = model[1]
-        self.class_priori        = model[2]
-        self.internal_classifier = model[3]
 
     """
     Create an instance of this classifier
@@ -332,4 +329,4 @@ class BagOfWordsBayes(object):
         self.class_freqs = {}
         self.inclass = "Inclass"
         self.outclass = "Outclass"
-        self.internal_classifier = linear_model.Lasso()
+        self.internal_classifier = linear_model.LinearRegression()

@@ -8,8 +8,8 @@ __license__   = "GPL"
 __version__   = "3.0"
 
 from threading import Thread
+from datetime import datetime
 import math
-
 
 def sortList(l):
     l.sort()
@@ -98,6 +98,10 @@ def binarySearchByKey(l,key):
         else: # key == mid_key
             return mid
     return None
+
+
+def rootMeanSquaredError(pred,actual):
+    return math.sqrt(meanSquaredError(pred,actual))
 
 """
 Calculate mean squared error for a set of values
@@ -190,4 +194,5 @@ def mergeSortedLists(lists,write_list=[]):
     return write_list
 
 def printInfo(message):
-    print '[INFO] %s' % (message,)
+    t = datetime.now().isoformat().replace('T',' ').split('.')[0]
+    print '[INFO %s] %s' % (t,message,)

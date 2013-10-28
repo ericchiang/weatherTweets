@@ -7,15 +7,18 @@ __email__     = "eric.chiang.m@gmail.com"
 __license__   = "GPL"
 __version__   = "3.0"
 
+import csv
 import sys
+import json
+import re
+import string
 import math
 import numpy as np
 from sklearn import cross_validation
 from naivebayes import BagOfWordsBayes
 from utils import printInfo,meanSquaredError,rootMeanSquaredError # utils.py
-from featextract import *
+from featextract import * # featextract.py
 
-meta_tags = ['@mention','{link}']
 
 def usage():
     print """
@@ -53,8 +56,8 @@ if __name__ == '__main__':
 
     for var_name in var_names:
         # Get index of desired label
-        label_index = headers.index(var_name)
-        if not label_index:
+        var_index = headers.index(var_name)
+        if not var_index:
             printInfo("No variable '%s' found..." % (var_name))
             continue
  
@@ -64,9 +67,7 @@ if __name__ == '__main__':
         X = tweet_data
         y = []
         for row in data:
-            y.append(row[label_index])
-
-        assert len(X) == len(y)
+            y.append(row[var_index])
     
         X = np.array(X)
         y = np.array(y)
