@@ -29,10 +29,8 @@ class BagOfWordsBayes(object):
     Train the classifier. X is a list containing bags of words. Y is a list of 
     confidence intervals corresponding to the confidence that a specific bag
     is inclass.
-
-    A majority of this function is dedicated to parallelization 
     """
-    def fit(self, x, y, num_threads=2,verbose=False,holdout_percent=0.1):
+    def fit(self, x, y, num_threads=2,verbose=False,holdout_percent=0.01):
 
         assert len(x) == len(y), "Bags and intervals have different lengths"
         for i in range(len(y)):
@@ -72,151 +70,22 @@ class BagOfWordsBayes(object):
         if verbose:
             utils.printInfo("Generating word frequency tuples")
 
-        """
-        Create (word, inclass frequency, outclass frequency) tuples
-        """
-        queue = Queue() 
-        threads = []
-        x_chunks = utils.chunkList(x_train,num_threads)
-        y_chunks = utils.chunkList(y_train,num_threads)
-        for i in range(num_threads):
-            x_chunk = x_chunks[i]
-            y_chunk = y_chunks[i]
-            t = Thread(target=self._extractWordFreq, args=(x_chunk,y_chunk,queue))
-            t.deamon = True
-            t.start()
-            threads.append(t)
+        for i in range(len(x_train)):
+            inclass_freq = y_train[i]
+            outclass_freq = 1.0 - inclass_freq
+            for word in set(x_train[i]):
+                try:
+                    self.word_freqs[word][0] += inclass_freq
+                    self.word_freqs[word][1] += outclass_freq
+                except KeyError:
+                    self.word_freqs[word] = [inclass_freq,outclass_freq]
 
-        # Wait for threads to finish
-        for t in threads:
-            t.join()
 
-        assert queue.qsize() == num_threads
-
-        # Collect results from each sort
-        word_freq_tuples = []
-        while not queue.empty():
-            word_freq_tuples.extend(queue.get())
-
-        if verbose:
-            utils.printInfo("Sorting word frequency tuples")
-
-        """
-        Sort word frequency tuples so summing of frequencies
-        can be done in linear time
-        """
-        # Sort data
-        utils.parallelSort(word_freq_tuples,num_threads)
-
-        if verbose:
-            utils.printInfo("Combining word frequency tuples")
-
-        """
-        Combine word frequency tuples
-        """
-        threads =[]
-        queue = Queue()
-        tuple_chunks = utils.chunkList(word_freq_tuples,num_threads)
-        for i in range(num_threads):
-            tuple_chunk = tuple_chunks[i]
-            t = Thread(target=self._combineWordFreq, \
-                       args=(i,tuple_chunks[i],queue))
-            t.deamon = True
-            t.start()
-            threads.append(t)
-
-        for t in threads:
-            t.join()
-
-        assert queue.qsize() == num_threads
-
-        comb_word_freq_chunks = []
-        while not queue.empty():
-            comb_word_freq_chunks.append(queue.get())
-
-        comb_word_freq_chunks.sort() # sort by index
-
-        """
-        Combine combined chunks. If a word was assigned to two different
-        chunks, combine those frequencies.
-        """
-        combined_word_freqs = []
-        last_word = -1
-        last_index = -1
-        for index,word_freqs in comb_word_freq_chunks:
-            assert index > last_index
-            last_index = index
-            if word_freqs[0][0] == last_word:
-                in_word_freq = word_freqs[0][1]  + combined_word_freqs[-1][1]
-                out_word_freq = word_freqs[0][2] + combined_word_freqs[-1][2]
-                new_word_freq_tuple = (last_word,in_word_freq,out_word_freq)
-                combined_word_freqs[-1] = new_word_freq_tuple
-                word_freqs = word_freqs[1:]
-            last_word = word_freqs[-1][0]
-            combined_word_freqs.extend(word_freqs)
-
-        self.word_freqs = combined_word_freqs
-
-        if verbose:
-            utils.printInfo("Training internal classifier")
 
         """
         Train internal classifier
         """
         self.internal_classifier.fit(self._genLogProbs(x_holdout),y_holdout)
-
-    """
-    Parallelized calculation method
-    """
-    def _combineWordFreq(self,index,bag_data,queue):
-        combined_bag_data = []
-        last_word    = bag_data[0][0]
-        in_freq_sum  = bag_data[0][1]
-        out_freq_sum = bag_data[0][2]
-        for i in range(len(bag_data))[1:]:
-            curr_word = bag_data[i][0]
-            curr_in_freq  = bag_data[i][1]
-            curr_out_freq = bag_data[i][2]
-            if curr_word == last_word:
-                in_freq_sum += curr_in_freq
-                out_freq_sum += curr_out_freq
-            else:
-                word_freq_tuple = (last_word,in_freq_sum,out_freq_sum)
-                combined_bag_data.append(word_freq_tuple)
-                last_word = curr_word
-                in_freq_sum = curr_in_freq
-                out_freq_sum = curr_out_freq
-        word_freq_tuple = (last_word,in_freq_sum,out_freq_sum)
-        combined_bag_data.append(word_freq_tuple)
-
-
-        queue.put((index,combined_bag_data))
-
-    """
-    Write training data to queue
-    """
-    def _extractWordFreq(self,x,y,queue):
-        assert len(x) == len(y)
-        word_freqs = []
-        for i in range(len(x)):
-            bag = x[i]
-            inclass_prob = y[i]
-            for word in set(bag):
-                outclass_prob = 1.0 - inclass_prob
-                freq_tuple = (word,inclass_prob,outclass_prob)
-                word_freqs.append(freq_tuple)
-        queue.put(word_freqs)
-
-    """
-    Not used
-    """
-    def _probModifier(self,confid_inter):
-        assert confid_inter <= 1.0 and confid_inter >= 0.0, \
-              "Bad confidence interval: %s" % confid_inter
-        confid_inter = (2.0 * confid_inter) - 1.0
-        confid_inter = confid_inter ** 3
-        confid_inter += 1.0
-        return confid_inter / 2.0
 
     """
     Calculate mean squared error
@@ -288,17 +157,14 @@ class BagOfWordsBayes(object):
     """
     def _correctedClassProb(self,class_name,word):
         assert class_name == self.inclass or class_name == self.outclass
-        word_index = utils.binarySearchByKey(self.word_freqs,word)
-
-        if word_index: # if word is in words
-            w,in_word_freq,out_word_freq = self.word_freqs[word_index]
-            assert word == w
+        try:
+            in_word_freq,out_word_freq = self.word_freqs[word]
             total_word_freq = in_word_freq + out_word_freq
             if class_name == self.inclass:
                 class_word_freq = in_word_freq
             else:
                 class_word_freq = out_word_freq
-        else:
+        except KeyError:
             total_word_freq = 0.0
             class_word_freq = 0.0
  
@@ -320,11 +186,11 @@ class BagOfWordsBayes(object):
     """
     Create an instance of this classifier
     """
-    def __init__(self,s=2):
+    def __init__(self,s=1):
         # s is the strength of the training data
         assert s > 0, "S must have a value greater than 0"
         self.s = s
-        self.word_freqs = []
+        self.word_freqs = {}
         self.class_priori = {}
         self.class_freqs = {}
         self.inclass = "Inclass"
