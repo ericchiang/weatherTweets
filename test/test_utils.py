@@ -9,7 +9,13 @@ __version__   = "3.0"
 
 import unittest
 import random
-from utils import *
+import sys
+try:
+    sys.path.insert(0,'..')
+    from utils import *
+except:
+    sys.path.insert(0,'.')
+    from utils import *
 
 class TestUtilFunctions(unittest.TestCase):
 
