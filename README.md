@@ -1,7 +1,11 @@
 weatherTweets
 =============
 
-<h4>Machine Learning solution for Kaggle.com competition "Partly Sunny with a Chance of Hashtags"</h4>
+<h1>UPDATE</h1>
+<h3>While this repo was a fun meander through Naive Bayes and Hidden Markov Models, the results have been completely usurped by my second attempt at this challenge (RMSE improved by about 40%). Please refer to <a heft="github.com/EricChiang/cloudy-tweets">cloudy-tweets</a> for the improved solution.</h3>
+
+
+<h4>Machine Learning solution for Kaggle.com competition "Partlmy Sunny with a Chance of Hashtags"</h4>
 
 <h5>The challenge:</h5>
 Given a training set of tweets, can we extract weather information?
