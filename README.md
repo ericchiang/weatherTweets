@@ -2,7 +2,7 @@ weatherTweets
 =============
 
 <h1>UPDATE</h1>
-<h3>While this repo was a fun meander through Naive Bayes and Hidden Markov Models, the results have been completely usurped by my second attempt at this challenge (RMSE improved by about 40%). Please refer to "github.com/EricChiang/cloudy-tweets" for the improved solution.</h3>
+<h3>Please refer to my "<a herf="github.com/EricChiang/cloudy-tweets">cloudy-tweets</a>" repo for the improved solution.</h3>
 
 
 <h4>Machine Learning solution for Kaggle.com competition "Partlmy Sunny with a Chance of Hashtags"</h4>
