@@ -2,7 +2,7 @@ weatherTweets
 =============
 
 <h1>UPDATE</h1>
-<h3>Please refer to my "<a herf="github.com/EricChiang/cloudy-tweets">cloudy-tweets</a>" repo for the improved solution.</h3>
+<h1>Please refer to my "<a herf="github.com/EricChiang/cloudy-tweets">cloudy-tweets</a>" repo for the improved solution.</h1>
 
 
 <h4>Machine Learning solution for Kaggle.com competition "Partlmy Sunny with a Chance of Hashtags"</h4>
